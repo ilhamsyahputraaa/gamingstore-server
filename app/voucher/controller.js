@@ -70,6 +70,8 @@ module.exports = {
               category,
               nominals,
               thumbnail: filename,
+              name: req.session.user.name,
+              title: "Halaman Voucher",
             });
 
             await voucher.save();
@@ -114,7 +116,13 @@ module.exports = {
         .populate("category")
         .populate("nominals");
 
-      res.render("admin/voucher/edit", { voucher, nominal, category });
+      res.render("admin/voucher/edit", {
+        voucher,
+        nominal,
+        category,
+        name: req.session.user.name,
+        title: "Halaman Edit Voucher",
+      });
     } catch (err) {
       req.flash("alertMessage", `${err.message}`);
       req.flash("alertStatus", "danger");

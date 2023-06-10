@@ -12,11 +12,11 @@ module.exports = {
       if (req.session.user === null || req.session.user === undefined) {
         res.render("admin/users/view_signin", {
           alert,
+          title: "Halaman Login",
         });
       } else {
-        res.redirect('/dashboard')
+        res.redirect("/dashboard");
       }
-
     } catch (err) {
       req.flash("alertMessage", `${err.message}`);
       req.flash("alertStatus", "danger");
@@ -26,9 +26,9 @@ module.exports = {
 
   actionSignin: async (req, res) => {
     try {
-      const { email, password } = req.body
-      const check = await User.findOne({ email: email })
-      
+      const { email, password } = req.body;
+      const check = await User.findOne({ email: email });
+
       if (check) {
         if (check.status === "Y") {
           // const checkPassword = await bcrypt.compare(password, check.password);
@@ -56,15 +56,19 @@ module.exports = {
       } else {
         req.flash("alertMessage", `Maaf email anda salah atau belum terdaftar`);
         req.flash("alertStatus", "danger");
-        res.redirect("/");  
+        res.redirect("/");
       }
     } catch (error) {
       req.flash("alertMessage", `${err.message}`);
       req.flash("alertStatus", "danger");
       res.redirect("/");
     }
-  }
+  },
 
+  actionLogout: (req, res) => {
+    req.session.destroy();
+    res.redirect("/");
+  },
 
   // viewCreate: async (req, res) => {
   //   try {
