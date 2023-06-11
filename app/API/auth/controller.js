@@ -1,7 +1,9 @@
-const Player = require("../player/model");
+const Player = require("../../player/model");
 const path = require("path");
 const fs = require("fs");
-const config = require("../../config");
+const config = require("../../../config");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 module.exports = {
   signup: async (req, res) => {
@@ -33,8 +35,6 @@ module.exports = {
             delete player._doc.password;
 
             res.status(201).json({ data: player });
-              
-
           } catch (err) {
             if (err && err.name === "ValidationError") {
               return res.status(422).json({
@@ -64,6 +64,49 @@ module.exports = {
         });
       }
       next(err);
+    }
+  },
+
+  signin: async (req, res, next) => {
+    try {
+      const { email, password } = req.body;
+      player = Player.findOne({ email: email });
+      if (player) {
+        // const checkPassword = bcrypt.compareSync(password, player.password);
+        if (password === player.password) {
+          const token = jwt.sign(
+            {
+              player: {
+                id: player.id,
+                username: player.username,
+                email: player.email,
+                nama: player.nama,
+                phoneNumber: player.phoneNumber,
+                avatar: player.avatar,
+              },
+            },
+            config.jwtKey
+          );
+
+          res.status(200).json({
+            data: { token },
+          });
+        } else {
+          res.status(403).json({
+            message: "password yang anda masukan salah.",
+          });
+        }
+      } else {
+        res.status(403).json({
+          message: "email yang anda masukan belum terdaftar.",
+        });
+      }
+    } catch (err) {
+      res.status(500).json({
+        message: err.message || `Internal server error`,
+      });
+
+      next();
     }
   },
 };
