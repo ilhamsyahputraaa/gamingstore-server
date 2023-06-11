@@ -1,5 +1,6 @@
 const Player = require("../player/model");
 const Voucher = require("../voucher/model");
+const Category = require("../category/model");
 const bcrypt = require("bcryptjs");
 
 module.exports = {
@@ -16,17 +17,17 @@ module.exports = {
         .json({ message: error.message || `Terjadi kesalahan pada server` });
     }
   },
-  
+
   detailPage: async (req, res) => {
     try {
       const { id } = req.params;
       const voucher = await Voucher.findOne({ _id: id })
         .populate("category")
         .populate("nominals")
-        .populate("user", "_id name phoneNumber")
-      
+        .populate("user", "_id name phoneNumber");
+
       if (!voucher) {
-        return res.status(400).json({ message : "Voucher Tidak Ditemukan" })
+        return res.status(400).json({ message: "Voucher Tidak Ditemukan" });
       }
 
       res.status(200).json({ data: voucher });
@@ -34,6 +35,16 @@ module.exports = {
       res
         .status(500)
         .json({ message: error.message || `Terjadi kesalahan pada server` });
+    }
+  },
+
+  category: async (req, res) => {
+    try {
+      const category = await Category.find();
+    } catch (err) {
+      res.status(500).json({
+        message: error.message || `Terjadi kesalahan pada server`,
+      });
     }
   },
 };
