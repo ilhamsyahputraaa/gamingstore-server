@@ -1,9 +1,13 @@
+const Player = require("../player/model");
 const Voucher = require("../voucher/model");
 const Category = require("../category/model");
 const Bank = require("../bank/model");
 const Payment = require("../payment/model");
 const Nominal = require("../nominal/model");
 const Transaction = require("../transaction/model");
+const path = require("path");
+const fs = require("fs");
+const config = require("../../config");
 
 module.exports = {
   landingPage: async (req, res) => {
@@ -131,15 +135,15 @@ module.exports = {
 
   history: async (req, res) => {
     try {
-      const { status = '' } = req.query;
-      
-      let criteria = {}
+      const { status = "" } = req.query;
+
+      let criteria = {};
 
       if (status.length) {
         criteria = {
           ...criteria,
-          status : { $regex : `${status}` , $options: 'i'}
-        }
+          status: { $regex: `${status}`, $options: "i" },
+        };
       }
 
       if (req.player._id) {
@@ -149,39 +153,38 @@ module.exports = {
         };
       }
 
-      const history = await Transaction.find(criteria)
+      const history = await Transaction.find(criteria);
 
       let total = await Transaction.aggregate([
         { $match: criteria },
         {
           $group: {
             _id: null,
-            value : {$sum:"$value"}
-        }}
-      ])
+            value: { $sum: "$value" },
+          },
+        },
+      ]);
       res.status(200).json({
         data: history,
         total: total.length ? total[0].value : 0,
-      })
+      });
     } catch (err) {
-       res.status(500).json({ message: err.message || `Internal server error` });     
+      res.status(500).json({ message: err.message || `Internal server error` });
     }
   },
 
-  historyDetail : async (req, res) => {
+  historyDetail: async (req, res) => {
     try {
       const { id } = req.params;
-      
+
       const history = await Transaction.findOne({ _id: id });
-      
-      if (!history) return res.status(404).json({ message: "history tidak ditemukan." });
-      
-      res.status(200).json({data:history})
 
+      if (!history)
+        return res.status(404).json({ message: "history tidak ditemukan." });
 
+      res.status(200).json({ data: history });
     } catch (err) {
-       res.status(500).json({ message: err.message || `Internal server error` });   
-      
+      res.status(500).json({ message: err.message || `Internal server error` });
     }
   },
 
@@ -191,26 +194,118 @@ module.exports = {
         { $match: { player: req.player._id } },
         {
           $group: {
-            _id: '$category',
-            value: {$sum:'$value'}
-        }}
-      ])
+            _id: "$category",
+            value: { $sum: "$value" },
+          },
+        },
+      ]);
 
-      const category = await Category.find({})
+      const category = await Category.find({});
 
-      category.forEach(element => {
-        count.forEach(data => {
+      category.forEach((element) => {
+        count.forEach((data) => {
           if (data._id.toString() === element._id.toString()) {
-            data.name = element.name
+            data.name = element.name;
           }
-        })
-      })
+        });
+      });
 
-      const history = await Transaction.find({ player: req.player._id }).populate('category').sort({'updatedAt' : -1})
+      const history = await Transaction.find({ player: req.player._id })
+        .populate("category")
+        .sort({ updatedAt: -1 });
 
-      res.status(200).json({data:history, count : count})
+      res.status(200).json({ data: history, count: count });
     } catch (err) {
-      
+      res.status(500).json({ message: err.message || `Internal server error` });
     }
-  }
+  },
+
+  profileDetail: async (req, res) => {
+    try {
+      res.status(200).json({ data: req.player });
+    } catch (err) {
+      res.status(500).json({ message: err.message || `Internal server error` });
+    }
+  },
+
+  updateProfile: async (req, res, next) => {
+    try {
+      const { name = "", phoneNumber = "" } = req.body;
+      const payload = {};
+      if (name.length) payload.name = name;
+      if (phoneNumber.length) payload.phoneNumber = phoneNumber;
+
+      if (req.file) {
+        let tmp_path = req.file.path;
+        let originaExt =
+          req.file.originalname.split(".")[
+            req.file.originalname.split(".").length - 1
+          ];
+        let filename = req.file.filename + "." + originaExt;
+        let target_path = path.resolve(
+          config.rootPath,
+          `public/uploads/${filename}`
+        );
+
+        const src = fs.createReadStream(tmp_path);
+        const dest = fs.createWriteStream(target_path);
+
+        src.pipe(dest);
+
+        src.on("end", async () => {
+          let player = await Player.findOne({ _id: req.player.id });
+
+          let currentImage = `${config.rootPath}/public/uploads/${player.avatar}`;
+          if (fs.existsSync(currentImage)) {
+            fs.unlinkSync(currentImage);
+          }
+
+          await Player.findOneAndUpdate(
+            {
+              _id: req.player.id,
+            },
+            {
+              ...payload,
+              avatar: filename,
+            },
+            { new: true, runValidators: true }
+          );
+          
+          res.status(201).json({
+            data: {
+              id: player.id,
+              name: player.name,
+              phoneNumber: player.phoneNumber,
+              avatar: player.avatar,
+            },
+          });
+        });
+      } else {
+        const player = await Player.findOneAndUpdate(
+          {
+            _id: req.player._id,
+          },
+          payload,
+          { new: true, runValidators: true }
+        );
+
+        res.status(201).json({
+          data: {
+            id: player.id,
+            name: player.name,
+            phoneNumber: player.phoneNumber,
+            avatar: player.avatar,
+          },
+        });
+      }
+    } catch (err) {
+      if (err && err.name === "ValidatingError") {
+        res.status(422).json({
+          error: 1,
+          message: err.message,
+          fielfs: err.errors
+        })
+      }
+    }
+  },
 };
